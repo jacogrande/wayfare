@@ -1,4 +1,5 @@
 import { TileId } from "./Tile";
+import { TileBehaviorRegistry } from "./TileBehavior";
 
 /**
  * Configuration for a tile type
@@ -13,6 +14,8 @@ export interface TileProperties {
   height: number;
   /** Can this tile be destroyed/interacted with? */
   interactive?: boolean;
+  /** Does this tile have custom behavior? (cached for performance) */
+  hasBehavior?: boolean;
 }
 
 /**
@@ -109,5 +112,19 @@ export class TileConfig {
    */
   static getName(tileId: TileId): string {
     return this.getConfig(tileId).name;
+  }
+
+  /**
+   * Check if a tile has custom behavior
+   */
+  static hasBehavior(tileId: TileId): boolean {
+    return TileBehaviorRegistry.hasBehavior(tileId);
+  }
+
+  /**
+   * Get behavior instance for a tile
+   */
+  static getBehavior(tileId: TileId) {
+    return TileBehaviorRegistry.getBehavior(tileId);
   }
 }
