@@ -5,9 +5,10 @@ import { getActionIntent } from "../../input/Intent";
 import { Direction, DirectionalFrames } from "./SpriteLoader";
 import { vectorToDirection } from "./DirectionHelper";
 import { PlayerStats } from "./PlayerStats";
-import { JumpState } from "./jumping/JumpState";
+import { JumpState, JumpPhase } from "./jumping/JumpState";
 import { JumpPhysics } from "./jumping/JumpPhysics";
 import { JumpVisuals } from "./jumping/JumpVisuals";
+import { LandingAssist } from "./jumping/LandingAssist";
 
 export type PlayerOptions = {
   /** Called each frame to read current key state */
@@ -43,6 +44,7 @@ export class Player extends Entity {
   private readonly jumpState: JumpState;
   private readonly jumpPhysics: JumpPhysics;
   private readonly jumpVisuals: JumpVisuals;
+  private readonly landingAssist: LandingAssist;
 
   private shadow: Graphics;
   private sprite: Sprite | AnimatedSprite;
@@ -58,6 +60,12 @@ export class Player extends Entity {
   private isMoving: boolean = false;
   private isSprinting: boolean = false;
   private wasJumpPressed: boolean = false; // Track previous frame's jump input
+
+  // Landing assistance smoothing
+  private landingCorrectionStart: { x: number; y: number } | null = null;
+  private landingCorrectionTarget: { x: number; y: number } | null = null;
+  private landingCorrectionProgress: number = 0;
+  private readonly landingCorrectionDuration: number = 80; // ms
 
   // Hitbox configuration
   private readonly hitboxWidth: number;
@@ -84,8 +92,8 @@ export class Player extends Entity {
 
     // Create shadow (ellipse underneath the sprite)
     this.shadow = new Graphics();
-    this.shadow.ellipse(0, 0, 6, 3); // 12px wide, 6px tall ellipse
-    this.shadow.fill({ color: 0x000000, alpha: 0.3 });
+    this.shadow.ellipse(0, 0, 8, 4); // 12px wide, 6px tall ellipse
+    this.shadow.fill({ color: 0x000000, alpha: 0.6 });
     this.shadow.y = 14; // Position shadow below sprite center (at feet)
     this.add(this.shadow);
 
@@ -128,6 +136,11 @@ export class Player extends Entity {
       squashAmount: 0.15,
       squashDuration: 100,
     });
+    this.landingAssist = new LandingAssist({
+      pushOutEnabled: true,
+      snapDistance: 6, // Snap within 6px
+      checkRadius: 16, // Search within 1 tile
+    });
   }
 
   update(dt: number) {
@@ -160,6 +173,48 @@ export class Player extends Entity {
       this.jumpPhysics.getHeightRatio(),
       this.jumpState.getPhase(),
     );
+
+    // Landing assistance: Check if just landed and position needs correction
+    if (this.jumpState.getPhase() === JumpPhase.Landing && !this.landingCorrectionTarget) {
+      const assisted = this.landingAssist.assistLanding(
+        this.x,
+        this.y,
+        (wx, wy) => this.checkCollision(wx, wy),
+      );
+
+      if (assisted) {
+        // Start smooth correction to safe position
+        this.landingCorrectionStart = { x: this.x, y: this.y };
+        this.landingCorrectionTarget = { x: assisted.x, y: assisted.y };
+        this.landingCorrectionProgress = 0;
+      }
+    }
+
+    // Smoothly interpolate to corrected position
+    if (this.landingCorrectionTarget && this.landingCorrectionStart) {
+      this.landingCorrectionProgress += dtMs;
+      const t = Math.min(1, this.landingCorrectionProgress / this.landingCorrectionDuration);
+
+      // Ease-out interpolation for smooth movement
+      const eased = 1 - Math.pow(1 - t, 3); // Cubic ease-out
+
+      const startX = this.landingCorrectionStart.x;
+      const startY = this.landingCorrectionStart.y;
+      const targetX = this.landingCorrectionTarget.x;
+      const targetY = this.landingCorrectionTarget.y;
+
+      const newX = startX + (targetX - startX) * eased;
+      const newY = startY + (targetY - startY) * eased;
+
+      this.setPosition(Math.round(newX), Math.round(newY));
+
+      // Complete correction
+      if (t >= 1) {
+        this.landingCorrectionStart = null;
+        this.landingCorrectionTarget = null;
+        this.landingCorrectionProgress = 0;
+      }
+    }
 
     // Handle sprinting and stamina
     let isSprinting = false;
@@ -314,18 +369,19 @@ export class Player extends Entity {
     const left = worldX + this.hitboxOffsetX - this.hitboxWidth / 2 + epsilon;
     const right = worldX + this.hitboxOffsetX + this.hitboxWidth / 2 - epsilon;
     const top = worldY + this.hitboxOffsetY - this.hitboxHeight / 2 + epsilon;
-    const bottom = worldY + this.hitboxOffsetY + this.hitboxHeight / 2 - epsilon;
+    const bottom =
+      worldY + this.hitboxOffsetY + this.hitboxHeight / 2 - epsilon;
 
     // Check all four corners and edges
     const checkPoints = [
-      { x: left, y: top },      // Top-left
-      { x: right, y: top },     // Top-right
-      { x: left, y: bottom },   // Bottom-left
-      { x: right, y: bottom },  // Bottom-right
-      { x: worldX, y: top },    // Top-center
+      { x: left, y: top }, // Top-left
+      { x: right, y: top }, // Top-right
+      { x: left, y: bottom }, // Bottom-left
+      { x: right, y: bottom }, // Bottom-right
+      { x: worldX, y: top }, // Top-center
       { x: worldX, y: bottom }, // Bottom-center
-      { x: left, y: worldY },   // Left-center
-      { x: right, y: worldY },  // Right-center
+      { x: left, y: worldY }, // Left-center
+      { x: right, y: worldY }, // Right-center
     ];
 
     // If any point is blocked, the hitbox collides
