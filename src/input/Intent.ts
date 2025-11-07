@@ -3,6 +3,8 @@ import { Keys } from "./Keyboard";
 export type MoveIntent = { x: number; y: number };
 export type ActionIntent = {
   move: MoveIntent;
+  sprint: boolean;
+  jump: boolean;
   roll: boolean;
   shoot: boolean;
 };
@@ -29,8 +31,10 @@ export function getActionIntent(keys: Keys): ActionIntent {
   }
 
   // you can map these to whatever keys you prefer
-  const roll = !!keys["ShiftLeft"] || !!keys["Space"];
+  const sprint = !!keys["ShiftLeft"] || !!keys["ShiftRight"];
+  const jump = !!keys["Space"];
+  const roll = !!keys["KeyE"];
   const shoot = !!keys["MouseLeft"] || !!keys["KeyJ"]; // example fallback key
 
-  return { move: { x, y }, roll, shoot };
+  return { move: { x, y }, sprint, jump, roll, shoot };
 }
