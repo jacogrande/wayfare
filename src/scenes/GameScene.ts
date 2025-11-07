@@ -1,11 +1,16 @@
 import { Viewport } from "pixi-viewport";
-import { Application } from "pixi.js";
+import { Application, Container } from "pixi.js";
 import { World } from "../world/World";
 import { Scene } from "./Scene";
+import { StaminaBar } from "../ui/StaminaBar";
+import { FpsCounter } from "../ui/FpsCounter";
 
 export class GameScene extends Scene {
   private readonly world: World;
   private readonly viewport: Viewport;
+  private readonly hud: Container;
+  private staminaBar!: StaminaBar;
+  private fpsCounter!: FpsCounter;
   private readonly deadzone = { width: 180, height: 120 };
   private lastViewportSize = { width: 0, height: 0 };
 
@@ -19,6 +24,11 @@ export class GameScene extends Scene {
     });
     this.container.addChild(this.viewport);
     this.world = new World();
+
+    // Create HUD layer (fixed on screen, not affected by viewport)
+    this.hud = new Container();
+    this.hud.zIndex = 1000; // Always on top
+    this.container.addChild(this.hud);
   }
 
   async start() {
@@ -41,12 +51,26 @@ export class GameScene extends Scene {
       width: this.app.renderer.width,
       height: this.app.renderer.height,
     };
+
+    // Create HUD elements
+    const player = this.world.getPlayer();
+    this.staminaBar = new StaminaBar(player.stats);
+    this.staminaBar.setPosition(10, 10);
+    this.hud.addChild(this.staminaBar.root);
+
+    this.fpsCounter = new FpsCounter();
+    this.fpsCounter.setPosition(10, 40);
+    this.hud.addChild(this.fpsCounter.root);
   }
 
   //========= MAIN UPDATE LOOP =========//
   update(deltaFrames: number, deltaMs: number) {
     void deltaMs;
     this.world.update(deltaFrames);
+
+    // Update HUD
+    this.staminaBar.update();
+    this.fpsCounter.update();
 
     // Update tilemap culling based on visible viewport
     const tileMapRenderer = this.world.getTileMapRenderer();
