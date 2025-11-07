@@ -3,6 +3,7 @@ import { CompositeTilemap } from "@pixi/tilemap";
 import { TileId } from "./Tile";
 import { TileMap } from "./TileMap";
 import { TileLayer } from "./TileLayer";
+import { TileVariants } from "./TileVariants";
 
 const CHUNK_SIZE = 16; // 16×16 tiles per chunk
 
@@ -16,11 +17,11 @@ interface Chunk {
 export class TileMapRenderer {
   public readonly root: Container;
   private readonly tileMap: TileMap;
-  private readonly textures: Map<TileId, Texture>;
-  private readonly chunks: Map<string, Map<string, Chunk>>;
+  private readonly textures: Map<TileId, Texture[]>; // Now supports multiple textures per tile
   private readonly visibleChunks: Set<string>;
+  private readonly chunks: Map<string, Map<string, Chunk>>;
 
-  constructor(tileMap: TileMap, textures: Map<TileId, Texture>) {
+  constructor(tileMap: TileMap, textures: Map<TileId, Texture[]>) {
     this.root = new Container();
     this.root.sortableChildren = true;
 
@@ -88,12 +89,17 @@ export class TileMapRenderer {
           continue;
         }
 
-        const texture = this.textures.get(tile.id);
+        const textures = this.textures.get(tile.id);
 
-        if (!texture) {
-          console.warn(`Missing texture for tile ID: ${tile.id}`);
+        if (!textures || textures.length === 0) {
+          console.warn(`Missing textures for tile ID: ${tile.id}`);
           continue;
         }
+
+        // Select variant: use tile's variant if specified, otherwise auto-select based on position
+        const variantIndex =
+          tile.variant ?? TileVariants.selectVariant(tile.id, x, y);
+        const texture = textures[variantIndex % textures.length]; // Clamp to available textures
 
         chunk.tilemap.tile(texture, x * tileSize, y * tileSize);
       }
