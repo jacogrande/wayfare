@@ -1,191 +1,206 @@
+import { Container, Texture, Rectangle } from "pixi.js";
 import { CompositeTilemap } from "@pixi/tilemap";
-import { Assets, Container, Rectangle, Texture } from "pixi.js";
-import type { TextureSource } from "pixi.js";
-import type { TileLayer, TileMap, TileId } from "./TileMap";
+import { TileId } from "./Tile";
+import { TileMap } from "./TileMap";
+import { TileLayer } from "./TileLayer";
 
-const OVERWORLD_ATLAS_PATH = "/gfx/Overworld.png";
-const TILE_COORDS: Record<TileId, { x: number; y: number }> = {
-  grass: { x: 0, y: 0 },
-  water: { x: 1, y: 0 },
-  path: { x: 2, y: 0 },
-};
-const CHUNK_TILE_SIZE = 16; // tiles per chunk edge
-const CHUNK_VISIBILITY_PADDING = 32; // pixels
+const CHUNK_SIZE = 16; // 16×16 tiles per chunk
 
-type ChunkLayer = {
-  name: string;
-  layer: TileLayer;
+interface Chunk {
+  chunkX: number;
+  chunkY: number;
   tilemap: CompositeTilemap;
-};
-
-type MapChunk = {
-  id: string;
-  container: Container;
-  layers: ChunkLayer[];
-  bounds: Rectangle;
-};
+  isDirty: boolean;
+}
 
 export class TileMapRenderer {
-  readonly root = new Container();
+  public readonly root: Container;
+  private readonly tileMap: TileMap;
+  private readonly textures: Map<TileId, Texture>;
+  private readonly chunks: Map<string, Map<string, Chunk>>;
+  private readonly visibleChunks: Set<string>;
 
-  private readonly textures = new Map<TileId, Texture>();
-  private tilesetSources: TextureSource[] = [];
-  private chunks: MapChunk[] = [];
-  private initialized = false;
-
-  constructor(private readonly map: TileMap) {
+  constructor(tileMap: TileMap, textures: Map<TileId, Texture>) {
+    this.root = new Container();
     this.root.sortableChildren = true;
-    this.root.zIndex = 0;
-  }
 
-  async init() {
-    if (this.initialized) return;
-    await this.prepareTileset();
+    this.tileMap = tileMap;
+    this.textures = textures;
+    this.chunks = new Map();
+    this.visibleChunks = new Set();
+
     this.buildChunks();
-    this.initialized = true;
   }
 
-  updateVisibleChunks(viewBounds: Rectangle) {
-    if (!this.initialized) return;
-    const padded = new Rectangle(
-      viewBounds.x - CHUNK_VISIBILITY_PADDING,
-      viewBounds.y - CHUNK_VISIBILITY_PADDING,
-      viewBounds.width + CHUNK_VISIBILITY_PADDING * 2,
-      viewBounds.height + CHUNK_VISIBILITY_PADDING * 2,
-    );
-    this.chunks.forEach((chunk) => {
-      const visible = this.intersects(padded, chunk.bounds);
-      chunk.container.visible = visible;
-      chunk.container.renderable = visible;
-    });
-  }
+  /**
+   * Build all chunks for all layers
+   */
+  private buildChunks(): void {
+    const layers = this.tileMap.getAllLayers();
 
-  private intersects(a: Rectangle, b: Rectangle) {
-    return (
-      a.x < b.x + b.width &&
-      a.x + a.width > b.x &&
-      a.y < b.y + b.height &&
-      a.y + a.height > b.y
-    );
-  }
+    for (const layer of layers) {
+      const layerChunks = new Map<string, Chunk>();
 
-  private collectUsedTileIds() {
-    const used = new Set<TileId>();
-    this.map.forEachLayer((layer) => {
-      layer.forEach((tile) => used.add(tile.tileId));
-    });
-    return used;
-  }
+      // Calculate chunk dimensions
+      const chunksX = Math.ceil(layer.width / CHUNK_SIZE);
+      const chunksY = Math.ceil(layer.height / CHUNK_SIZE);
 
-  private async prepareTileset() {
-    const atlasTexture = await Assets.load(OVERWORLD_ATLAS_PATH);
-    atlasTexture.source.scaleMode = "nearest";
-
-    const tileSize = this.map.tileSize;
-    const atlasSources = new Set<TextureSource>();
-    const usedTiles = this.collectUsedTileIds();
-
-    usedTiles.forEach((tileId) => {
-      const coords = TILE_COORDS[tileId];
-      if (!coords) {
-        throw new Error(
-          `Tile "${tileId}" does not have atlas coordinates defined`,
-        );
-      }
-      const frame = new Rectangle(
-        coords.x * tileSize,
-        coords.y * tileSize,
-        tileSize,
-        tileSize,
-      );
-      const texture = new Texture({
-        source: atlasTexture.source,
-        frame,
-      });
-      this.textures.set(tileId, texture);
-      atlasSources.add(texture.source);
-    });
-
-    this.tilesetSources = [...atlasSources];
-  }
-
-  private buildChunks() {
-    const chunkSizeTiles = CHUNK_TILE_SIZE;
-    const tileSize = this.map.tileSize;
-    const chunkSizePixels = chunkSizeTiles * tileSize;
-    const chunkCols = Math.ceil(this.map.width / chunkSizeTiles);
-    const chunkRows = Math.ceil(this.map.height / chunkSizeTiles);
-
-    for (let chunkY = 0; chunkY < chunkRows; chunkY++) {
-      for (let chunkX = 0; chunkX < chunkCols; chunkX++) {
-        const id = `${chunkX},${chunkY}`;
-        const container = new Container();
-        container.sortableChildren = true;
-        container.position.set(
-          chunkX * chunkSizePixels,
-          chunkY * chunkSizePixels,
-        );
-        this.root.addChild(container);
-
-        const startTileX = chunkX * chunkSizeTiles;
-        const startTileY = chunkY * chunkSizeTiles;
-        const endTileX = Math.min(startTileX + chunkSizeTiles, this.map.width);
-        const endTileY = Math.min(startTileY + chunkSizeTiles, this.map.height);
-
-        const chunkLayers: ChunkLayer[] = [];
-        this.map.forEachLayer((layer) => {
-          const tilemap = new CompositeTilemap(this.tilesetSources);
+      // Create a chunk for each region
+      for (let cy = 0; cy < chunksY; cy++) {
+        for (let cx = 0; cx < chunksX; cx++) {
+          const chunkKey = `${cx},${cy}`;
+          const tilemap = new CompositeTilemap();
           tilemap.zIndex = layer.zIndex;
-          container.addChild(tilemap);
 
-          tilemap.clear();
-          for (let tileY = startTileY; tileY < endTileY; tileY++) {
-            for (let tileX = startTileX; tileX < endTileX; tileX++) {
-              const tile = layer.getTile(tileX, tileY);
-              const texture = this.ensureTexture(tile.tileId);
-              const localX = (tileX - startTileX) * tileSize;
-              const localY = (tileY - startTileY) * tileSize;
-              tilemap.tile(texture, localX, localY);
-            }
-          }
-
-          chunkLayers.push({
-            name: layer.name,
-            layer,
+          const chunk: Chunk = {
+            chunkX: cx,
+            chunkY: cy,
             tilemap,
-          });
-        });
+            isDirty: true,
+          };
 
-        const bounds = new Rectangle(
-          chunkX * chunkSizePixels,
-          chunkY * chunkSizePixels,
-          Math.min(
-            chunkSizePixels,
-            this.map.getWorldWidth() - chunkX * chunkSizePixels,
-          ),
-          Math.min(
-            chunkSizePixels,
-            this.map.getWorldHeight() - chunkY * chunkSizePixels,
-          ),
-        );
+          layerChunks.set(chunkKey, chunk);
+          this.root.addChild(tilemap);
+        }
+      }
 
-        this.chunks.push({
-          id,
-          container,
-          layers: chunkLayers,
-          bounds,
-        });
+      this.chunks.set(layer.name, layerChunks);
+    }
+  }
+
+  /**
+   * Render a single chunk
+   */
+  private renderChunk(chunk: Chunk, layer: TileLayer): void {
+    const tileSize = this.tileMap.tileSizePx;
+    const startX = chunk.chunkX * CHUNK_SIZE;
+    const startY = chunk.chunkY * CHUNK_SIZE;
+    const endX = Math.min(startX + CHUNK_SIZE, layer.width);
+    const endY = Math.min(startY + CHUNK_SIZE, layer.height);
+
+    chunk.tilemap.clear();
+
+    for (let y = startY; y < endY; y++) {
+      for (let x = startX; x < endX; x++) {
+        const tile = layer.getTile(x, y);
+
+        if (!tile || tile.id === "empty") {
+          continue;
+        }
+
+        const texture = this.textures.get(tile.id);
+
+        if (!texture) {
+          console.warn(`Missing texture for tile ID: ${tile.id}`);
+          continue;
+        }
+
+        chunk.tilemap.tile(texture, x * tileSize, y * tileSize);
+      }
+    }
+
+    chunk.isDirty = false;
+  }
+
+  /**
+   * Update visible chunks based on camera bounds
+   */
+  public updateCulling(cameraBounds: Rectangle): void {
+    const tileSize = this.tileMap.tileSizePx;
+    const newVisibleChunks = new Set<string>();
+
+    // Calculate which chunks intersect the camera
+    const minChunkX = Math.floor(cameraBounds.left / (CHUNK_SIZE * tileSize));
+    const maxChunkX = Math.ceil(cameraBounds.right / (CHUNK_SIZE * tileSize));
+    const minChunkY = Math.floor(cameraBounds.top / (CHUNK_SIZE * tileSize));
+    const maxChunkY = Math.ceil(cameraBounds.bottom / (CHUNK_SIZE * tileSize));
+
+    // Add a 1-chunk buffer to prevent pop-in
+    const buffer = 1;
+
+    for (let cy = minChunkY - buffer; cy <= maxChunkY + buffer; cy++) {
+      for (let cx = minChunkX - buffer; cx <= maxChunkX + buffer; cx++) {
+        const chunkKey = `${cx},${cy}`;
+        newVisibleChunks.add(chunkKey);
+      }
+    }
+
+    // Show newly visible chunks, hide newly invisible chunks
+    for (const [layerName, layerChunks] of this.chunks.entries()) {
+      const layer = this.tileMap.getLayer(layerName);
+      if (!layer) continue;
+
+      for (const [chunkKey, chunk] of layerChunks.entries()) {
+        const isVisible = newVisibleChunks.has(chunkKey);
+        const wasVisible = this.visibleChunks.has(chunkKey);
+
+        if (isVisible && !wasVisible) {
+          // Chunk became visible
+          if (chunk.isDirty) {
+            this.renderChunk(chunk, layer);
+          }
+          chunk.tilemap.visible = true;
+        } else if (!isVisible && wasVisible) {
+          // Chunk became invisible
+          chunk.tilemap.visible = false;
+        }
+      }
+    }
+
+    this.visibleChunks = newVisibleChunks;
+  }
+
+  /**
+   * Mark a tile as dirty (needs re-render)
+   */
+  public markTileDirty(layerName: string, tx: number, ty: number): void {
+    const layerChunks = this.chunks.get(layerName);
+    if (!layerChunks) return;
+
+    const chunkX = Math.floor(tx / CHUNK_SIZE);
+    const chunkY = Math.floor(ty / CHUNK_SIZE);
+    const chunkKey = `${chunkX},${chunkY}`;
+
+    const chunk = layerChunks.get(chunkKey);
+    if (chunk) {
+      chunk.isDirty = true;
+
+      // Re-render immediately if visible
+      if (this.visibleChunks.has(chunkKey)) {
+        const layer = this.tileMap.getLayer(layerName);
+        if (layer) {
+          this.renderChunk(chunk, layer);
+        }
       }
     }
   }
 
-  private ensureTexture(tileId: TileId) {
-    const texture = this.textures.get(tileId);
-    if (!texture) {
-      throw new Error(
-        `Texture for tile "${tileId}" requested before initialization`,
-      );
+  /**
+   * Rebuild a specific layer (when tiles change)
+   */
+  public rebuildLayer(layerName: string): void {
+    const layerChunks = this.chunks.get(layerName);
+    const layer = this.tileMap.getLayer(layerName);
+
+    if (!layerChunks || !layer) {
+      return;
     }
-    return texture;
+
+    // Mark all chunks as dirty and re-render visible ones
+    for (const [chunkKey, chunk] of layerChunks.entries()) {
+      chunk.isDirty = true;
+      if (this.visibleChunks.has(chunkKey)) {
+        this.renderChunk(chunk, layer);
+      }
+    }
+  }
+
+  /**
+   * Rebuild all layers
+   */
+  public rebuildAll(): void {
+    for (const layerName of this.chunks.keys()) {
+      this.rebuildLayer(layerName);
+    }
   }
 }
