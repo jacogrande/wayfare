@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 Wayfare is a 2D top-down action game built with PixiJS v8 and TypeScript. It features advanced movement mechanics including:
+
 - Stamina-based sprinting system
 - SOLID-architected jumping with coyote time and jump buffering
 - Air control with momentum preservation
@@ -17,30 +18,33 @@ Wayfare is a 2D top-down action game built with PixiJS v8 and TypeScript. It fea
 
 ```bash
 # Start development server (opens browser at localhost:8080)
-npm run dev
+bun run dev
 # or
-npm start
+bun start
 
 # Build for production (runs linter + TypeScript compiler + Vite build)
-npm run build
+bun run build
 
 # Run linter only
-npm run lint
+bun run lint
 ```
 
 ## Architecture
 
 ### Core Game Loop
+
 - Entry point: `src/main.ts` initializes the PixiJS Application and starts the game loop
 - The main loop calls `scene.update(dt)` each frame with delta time
 - Camera centers on the player by positioning the scene container at screen center and optionally adjusting the world pivot
 
 ### Scene System
+
 - Base class: `src/scenes/Scene.ts` provides container management and lifecycle hooks
 - Scenes must implement `start()` for initialization and optionally override `update(dt)` for per-frame logic
 - `GameScene` (`src/scenes/GameScene.ts`) contains a `world` container for game objects and manages the player entity
 
 ### Entity System
+
 - Base class: `src/world/entities/Entity.ts` provides a `root` Container for all visual elements
 - Entities implement the `Updatable` interface (from `src/types.ts`) requiring an `update(dt)` method
 - Each entity has optional `vx`, `vy` properties for physics-based movement
@@ -53,6 +57,7 @@ npm run lint
   - Landing assistance to prevent getting stuck in obstacles
 
 ### Input System
+
 - `src/input/Keyboard.ts` is a singleton that tracks key/mouse state globally
 - Initializes event listeners automatically and handles Vite HMR cleanup
 - Exposes `Keyboard.getKeys()` returning a readonly snapshot of current input state
@@ -64,6 +69,7 @@ npm run lint
   - **shoot**: Mouse left / J key (planned)
 
 ### Tilemap System
+
 - `src/world/map/TileMap.ts` manages multiple tile layers with collision data
 - `src/world/map/TileMapRenderer.ts` provides chunk-based rendering with viewport culling
 - Three layers (z-indexed):
@@ -77,6 +83,7 @@ npm run lint
   - Water: 32px (too tall to jump)
 
 ### UI System
+
 - `src/scenes/GameScene.ts` contains a fixed HUD container (zIndex: 1000)
 - HUD elements are not affected by viewport/camera movement
 - Components:
@@ -84,6 +91,7 @@ npm run lint
   - `FpsCounter` (`src/ui/FpsCounter.ts`): Performance monitoring
 
 ### Jumping System (SOLID Architecture)
+
 The jumping system follows SOLID principles with separate responsibilities:
 
 1. **JumpState** (`src/world/entities/jumping/JumpState.ts`)
@@ -112,6 +120,7 @@ The jumping system follows SOLID principles with separate responsibilities:
    - Snap distance: 6px, Check radius: 16px (1 tile)
 
 ### Key Patterns
+
 1. **Entity composition**: Entities have a `root` Container; add sprites/graphics to it via `entity.add(child)`
 2. **Dependency injection**: Player receives `readKeys` and `isBlocked` functions rather than direct coupling
 3. **Delta time handling**: `dt` from PixiJS ticker is in frames at 60fps; convert to seconds with `dt / 60` and milliseconds with `dtSec * 1000`
@@ -136,12 +145,14 @@ The jumping system follows SOLID principles with separate responsibilities:
 ## Best Practices
 
 ### Code Organization
+
 - **Separate concerns**: Use SOLID principles - each class has one responsibility
 - **Composition over inheritance**: Prefer composing systems (like jumping) from multiple focused classes
 - **Dependency injection**: Pass dependencies through constructor options, not singletons
 - **Type safety**: Use TypeScript interfaces for configuration objects
 
 ### Physics & Movement
+
 - **Frame-rate independence**: Always multiply by `dtSec` for velocity/acceleration
 - **Exponential drag**: Use `Math.exp(-drag * dtSec)` for smooth, frame-rate independent deceleration
 - **Air control**: Reduce acceleration (60%) and drag (20%) while airborne to preserve momentum
@@ -149,6 +160,7 @@ The jumping system follows SOLID principles with separate responsibilities:
 - **Collision**: Use 8-point hitbox checking with epsilon adjustment at tile boundaries
 
 ### Game Feel
+
 - **Sprint multiplier**: 1.5x feels good without being too fast
 - **Animation speeds**: 150ms per frame (normal walk), 80ms per frame (sprint)
 - **Stamina**: 100 max, regenerate at 10/sec, drain at 20/sec while sprinting
@@ -158,30 +170,35 @@ The jumping system follows SOLID principles with separate responsibilities:
 - **Landing assistance**: 80ms smooth correction prevents stuck-in-obstacle frustration
 
 ### Visual Polish
+
 - **Shadow**: Ellipse (12x6px) at player feet with dynamic scaling during jumps
 - **Rounded borders**: 6px border radius on UI elements
 - **Easing**: Cubic ease-out for smooth corrections, elastic ease-out for squash
 - **Z-indexing**: Ground (0) → Objects (5) → Walls (10) → Player (varies) → HUD (1000)
 
 ### Performance
+
 - **Chunk-based rendering**: Use 8-tile chunks with viewport culling
 - **Early exit**: Exit search algorithms as soon as valid result found
 - **Minimal updates**: Only update visible/active entities
 - **Asset loading**: Use PixiJS v8 Assets API for all resources
 
 ### Input Handling
+
 - **Press detection**: Use rising edge (wasn't pressed → is pressed) for single actions
 - **Hold detection**: Use current state for continuous actions (movement, sprint)
 - **Intent translation**: Separate raw input (Keyboard) from game actions (Intent)
 - **Normalized diagonal**: Divide diagonal movement by √2 for consistent speed
 
 ### Documentation
-- Research docs in `docs/research/` explain *why* and reference best practices
-- Implementation docs in `docs/implementation/` explain *how* and provide configuration
-- Code comments explain *what* for complex algorithms only
+
+- Research docs in `docs/research/` explain _why_ and reference best practices
+- Implementation docs in `docs/implementation/` explain _how_ and provide configuration
+- Code comments explain _what_ for complex algorithms only
 - README provides getting started and architecture overview
 
 ## TypeScript Configuration
+
 - Strict mode enabled with additional checks (`noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`)
 - Module resolution: bundler mode (Vite)
 - Target: ES2020 with DOM APIs
@@ -189,6 +206,7 @@ The jumping system follows SOLID principles with separate responsibilities:
 ## Common Tuning Parameters
 
 ### Player Movement
+
 ```typescript
 // In src/world/World.ts
 maxSpeed: 150,           // Base movement speed (px/sec)
@@ -199,6 +217,7 @@ airDragFactor: 0.2,      // Air drag multiplier (0-1)
 ```
 
 ### Jumping
+
 ```typescript
 // In src/world/entities/Player.ts
 gravity: 1200,           // Gravity (px/sec²)
@@ -210,6 +229,7 @@ jumpBufferMs: 100,       // Input memory (milliseconds)
 ```
 
 ### Landing Assistance
+
 ```typescript
 // In src/world/entities/Player.ts
 pushOutEnabled: true,    // Enable landing assistance
@@ -218,6 +238,7 @@ checkRadius: 16,         // Search radius (pixels)
 ```
 
 ### Stamina
+
 ```typescript
 // In src/world/entities/PlayerStats.ts
 maxStamina: 100,         // Maximum stamina pool

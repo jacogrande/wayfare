@@ -147,7 +147,11 @@ export class TileMapRenderer {
       }
     }
 
-    this.visibleChunks = newVisibleChunks;
+    // Update visible chunks set (clear and repopulate)
+    this.visibleChunks.clear();
+    for (const chunkKey of newVisibleChunks) {
+      this.visibleChunks.add(chunkKey);
+    }
   }
 
   /**

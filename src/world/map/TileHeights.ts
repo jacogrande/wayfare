@@ -1,28 +1,17 @@
 import { TileId } from "./Tile";
+import { TileConfig } from "./TileConfig";
 
 /**
- * Obstacle height configuration
- * Defines how tall each obstacle is for jump collision
+ * Obstacle height utilities
+ * Uses TileConfig as single source of truth for tile properties
  */
-export const TILE_HEIGHTS: Map<TileId, number> = new Map([
-  // Ground tiles (no height)
-  ["grass", 0],
-  ["empty", 0],
-
-  // Water (ground level, cannot jump over)
-  ["water", 32], // Too tall to jump
-
-  // Objects (can jump over if height < 16px)
-  ["rock", 12], // Can jump over
-  ["log", 8], // Can jump over
-  ["tree", 16], // Base of tree - can jump over at max height
-]);
 
 /**
  * Get the height of a tile
+ * @deprecated Use TileConfig.getHeight() directly
  */
 export function getTileHeight(tileId: TileId): number {
-  return TILE_HEIGHTS.get(tileId) ?? 0;
+  return TileConfig.getHeight(tileId);
 }
 
 /**
@@ -33,7 +22,7 @@ export function canJumpOver(
   jumpHeight: number,
   tolerance: number = 0.9,
 ): boolean {
-  const obstacleHeight = getTileHeight(tileId);
+  const obstacleHeight = TileConfig.getHeight(tileId);
   if (obstacleHeight === 0) return true; // No obstacle
   return jumpHeight >= obstacleHeight * tolerance;
 }

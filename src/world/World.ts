@@ -1,4 +1,4 @@
-import { Assets, Container, Sprite } from "pixi.js";
+import { Container, Sprite } from "pixi.js";
 import Keyboard from "../input/Keyboard";
 import { Player } from "./entities/Player";
 import { TileMap } from "./map/TileMap";

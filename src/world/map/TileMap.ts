@@ -1,5 +1,7 @@
 import { DEFAULTS } from "./constants";
 import { TileLayer } from "./TileLayer";
+import { TileConfig } from "./TileConfig";
+import { Tile } from "./Tile";
 
 export class TileMap {
   private readonly width: number;
@@ -46,7 +48,7 @@ export class TileMap {
   }
 
   /** Get the tile at a specific position (checks all layers, returns first non-empty) */
-  getTileAt(tx: number, ty: number): import("./Tile").Tile | null {
+  getTileAt(tx: number, ty: number): Tile | null {
     if (tx < 0 || tx >= this.width || ty < 0 || ty >= this.height) {
       return null;
     }
@@ -61,6 +63,25 @@ export class TileMap {
     }
 
     return null;
+  }
+
+  /**
+   * Update collision grid based on tile configuration
+   * Call this after placing/removing tiles to sync collision
+   */
+  syncCollisionFromTiles(): void {
+    // Clear collision grid
+    this.collisionGrid.fill(0);
+
+    // Iterate through all tiles and set collision based on tile config
+    for (let ty = 0; ty < this.height; ty++) {
+      for (let tx = 0; tx < this.width; tx++) {
+        const tile = this.getTileAt(tx, ty);
+        if (tile && TileConfig.blocksMovement(tile.id)) {
+          this.setCollision(tx, ty, true);
+        }
+      }
+    }
   }
 
   /** Set collision at tile position */
@@ -134,17 +155,19 @@ export class TileMap {
       const y = Math.floor(Math.random() * (height - 4)) + 2;
       const tileType = Math.random() > 0.5 ? "rock" : "tree";
       objects.setTile(x, y, { id: tileType });
-      // Objects block movement
-      map.setCollision(x, y, true);
+      // Collision is determined by TileConfig, not set manually
     }
     // Add a few logs
     for (let i = 0; i < 10; i++) {
       const x = Math.floor(Math.random() * (width - 4)) + 2;
       const y = Math.floor(Math.random() * (height - 4)) + 2;
       objects.setTile(x, y, { id: "log" });
-      map.setCollision(x, y, true);
+      // Collision is determined by TileConfig, not set manually
     }
     map.addLayer(objects);
+
+    // Sync collision grid from tile configuration
+    map.syncCollisionFromTiles();
 
     return map;
   }

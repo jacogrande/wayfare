@@ -54,9 +54,7 @@ export class JumpState {
    * Check if player is in the air
    */
   isAirborne(): boolean {
-    return (
-      this.phase === JumpPhase.Rising || this.phase === JumpPhase.Falling
-    );
+    return this.phase === JumpPhase.Rising || this.phase === JumpPhase.Falling;
   }
 
   /**

@@ -8,7 +8,9 @@ export type Keys = Record<
   | "KeyD"
   | "ArrowRight"
   | "ShiftLeft"
+  | "ShiftRight"
   | "Space"
+  | "KeyE"
   | "MouseLeft"
   | "KeyJ",
   boolean
@@ -20,7 +22,9 @@ const keys: Keys = {
   KeyS: false,
   KeyD: false,
   ShiftLeft: false,
+  ShiftRight: false,
   Space: false,
+  KeyE: false,
   MouseLeft: false,
   KeyJ: false,
   ArrowUp: false,

@@ -57,7 +57,6 @@ export class Player extends Entity {
   private animationTimer: number = 0;
   private readonly animationSpeedNormalMs: number = 150; // Normal walk animation
   private readonly animationSpeedSprintMs: number = 80; // Faster when sprinting
-  private isMoving: boolean = false;
   private isSprinting: boolean = false;
   private wasJumpPressed: boolean = false; // Track previous frame's jump input
 
@@ -175,7 +174,10 @@ export class Player extends Entity {
     );
 
     // Landing assistance: Check if just landed and position needs correction
-    if (this.jumpState.getPhase() === JumpPhase.Landing && !this.landingCorrectionTarget) {
+    if (
+      this.jumpState.getPhase() === JumpPhase.Landing &&
+      !this.landingCorrectionTarget
+    ) {
       const assisted = this.landingAssist.assistLanding(
         this.x,
         this.y,
@@ -193,7 +195,10 @@ export class Player extends Entity {
     // Smoothly interpolate to corrected position
     if (this.landingCorrectionTarget && this.landingCorrectionStart) {
       this.landingCorrectionProgress += dtMs;
-      const t = Math.min(1, this.landingCorrectionProgress / this.landingCorrectionDuration);
+      const t = Math.min(
+        1,
+        this.landingCorrectionProgress / this.landingCorrectionDuration,
+      );
 
       // Ease-out interpolation for smooth movement
       const eased = 1 - Math.pow(1 - t, 3); // Cubic ease-out

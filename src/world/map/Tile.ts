@@ -1,5 +1,3 @@
-import { Coordinates } from "../../types";
-
 /**
  * A tile identifier
  */

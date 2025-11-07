@@ -80,11 +80,13 @@ export class LandingAssist {
       }
 
       // If we found a valid position within snap distance, use it immediately
-      if (closestValid && closestValid.dist <= this.snapDistance) {
-        return { x: closestValid.x, y: closestValid.y };
+      const current = closestValid;
+      if (current && current.dist <= this.snapDistance) {
+        return { x: current.x, y: current.y };
       }
     }
 
+    // Return closest valid position found, or null
     return closestValid ? { x: closestValid.x, y: closestValid.y } : null;
   }
 
