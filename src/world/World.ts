@@ -5,6 +5,7 @@ import { TileMap } from "./map/TileMap";
 import { TileMapRenderer } from "./map/TileMapRenderer";
 import { loadTileset, OVERWORLD_TILESET } from "./map/Tilesets";
 import { loadWalkCycleSprites } from "./entities/SpriteLoader";
+import { canJumpOver } from "./map/TileHeights";
 
 /**
  * World object responsible for containing maps, entities, viewports
@@ -24,6 +25,10 @@ export class World {
     return this.container;
   }
 
+  getPlayer() {
+    return this.player;
+  }
+
   getPlayerRoot() {
     return this.player.root;
   }
@@ -38,12 +43,27 @@ export class World {
 
   /**
    * Check if a world position is blocked by collision
+   * Takes into account jump height to allow jumping over obstacles
    */
   isBlocked(worldX: number, worldY: number): boolean {
     if (!this.tileMapData) return false;
 
     const { tx, ty } = this.tileMapData.worldToTile(worldX, worldY);
-    return this.tileMapData.isBlocked(tx, ty);
+    const isBlockedTile = this.tileMapData.isBlocked(tx, ty);
+
+    if (!isBlockedTile) return false;
+
+    // Check if player can jump over this obstacle
+    const jumpHeight = this.player?.getJumpHeight() ?? 0;
+    if (jumpHeight > 0) {
+      // Get the tile at this position to check its height
+      const tile = this.tileMapData.getTileAt(tx, ty);
+      if (tile && canJumpOver(tile.id, jumpHeight)) {
+        return false; // Can jump over this obstacle
+      }
+    }
+
+    return true; // Blocked
   }
 
   /**
@@ -78,11 +98,11 @@ export class World {
     //========= CREATE PLAYER =========//
     // Load walk cycle sprites (4x4 grid, each sprite is 16x32)
     // Row order: down, right, up, left (determined by testing)
-    const dirFrames = await loadWalkCycleSprites("/gfx/NPC_test.png", 16, 32, [
-      "down",  // Row 0: correct
+    const dirFrames = await loadWalkCycleSprites("/gfx/NPC_test2.png", 16, 32, [
+      "down", // Row 0: correct
       "right", // Row 1: was showing as "left"
-      "up",    // Row 2: was showing as "right"
-      "left",  // Row 3: was showing as "up"
+      "up", // Row 2: was showing as "right"
+      "left", // Row 3: was showing as "up"
     ]);
     const playerSprite = new Sprite(dirFrames.down[0]);
 
@@ -96,13 +116,16 @@ export class World {
       isBlocked: this.isBlocked.bind(this),
       directionalSprites: dirFrames,
       // Hitbox: smaller than sprite, focused on feet/lower body
-      hitboxWidth: 12,  // Narrower than sprite (16px scaled to 24px)
-      hitboxHeight: 8,  // Just the bottom portion for feet
+      hitboxWidth: 12, // Narrower than sprite (16px scaled to 24px)
+      hitboxHeight: 8, // Just the bottom portion for feet
       hitboxOffsetX: 0, // Centered horizontally
       hitboxOffsetY: 8, // Offset down toward feet (half of sprite height / 2)
-      maxSpeed: 200,
+      maxSpeed: 150,
       drag: 12,
       accel: 5000,
+      // Air control for momentum preservation during jumps
+      airControlFactor: 0.6, // 60% control in air
+      airDragFactor: 0.2, // Much lower drag in air (preserves momentum)
     });
     // Center player in world
     const worldSize = this.getWorldSize();
