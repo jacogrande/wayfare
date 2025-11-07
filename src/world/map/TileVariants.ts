@@ -19,43 +19,19 @@ export interface TileVariantConfig {
  */
 export class TileVariants {
   private static readonly configs = new Map<TileId, TileVariantConfig>([
-    // Grass has 4 variants for textured randomness
-    [
-      "grass",
-      {
-        count: 4,
-        strategy: "noise", // Use noise for natural-looking patches
-        noiseScale: 2.5,
-      },
-    ],
-    // Water has 4 variants for animation frames (could also be used for randomness)
-    [
-      "water",
-      {
-        count: 4,
-        strategy: "static", // Water variants controlled by animation, not randomness
-      },
-    ],
-    // Rocks have 3 variants
-    [
-      "rock",
-      {
-        count: 3,
-        strategy: "random", // Fully random rocks
-      },
-    ],
-    // Trees have 2 variants
-    [
-      "tree",
-      {
-        count: 2,
-        strategy: "random",
-      },
-    ],
-    // Logs have single texture
+    // TODO: Update counts once variant textures are added to spritesheet
+    // For now, all tiles have single texture (count: 1)
+    ["grass", { count: 1, strategy: "static" }],
+    ["water", { count: 1, strategy: "static" }],
+    ["rock", { count: 1, strategy: "static" }],
+    ["tree", { count: 1, strategy: "static" }],
     ["log", { count: 1, strategy: "static" }],
-    // Empty tile
     ["empty", { count: 1, strategy: "static" }],
+
+    // Example of how to configure variants once textures are added:
+    // ["grass", { count: 4, strategy: "noise", noiseScale: 2.5 }],
+    // ["rock", { count: 3, strategy: "random" }],
+    // ["tree", { count: 2, strategy: "random" }],
   ]);
 
   /**

@@ -101,6 +101,13 @@ export class TileMapRenderer {
           tile.variant ?? TileVariants.selectVariant(tile.id, x, y);
         const texture = textures[variantIndex % textures.length]; // Clamp to available textures
 
+        if (!texture) {
+          console.error(
+            `Texture undefined for tile ${tile.id} at (${x}, ${y}), variant ${variantIndex}, textures.length: ${textures.length}`,
+          );
+          continue;
+        }
+
         chunk.tilemap.tile(texture, x * tileSize, y * tileSize);
       }
     }

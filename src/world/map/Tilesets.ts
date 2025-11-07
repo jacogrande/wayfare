@@ -47,43 +47,19 @@ export const loadTileset = async (
 };
 
 export const OVERWORLD_TILESET: TilesetMapping = new Map([
-  // Grass has 4 variants for textured randomness (row 0, columns 0-3)
-  [
-    "grass",
-    [
-      { x: 0, y: 0 },
-      { x: 1, y: 0 },
-      { x: 2, y: 0 },
-      { x: 3, y: 0 },
-    ],
-  ],
-  // Water has 4 variants for animation (row 7, columns 3-6)
-  [
-    "water",
-    [
-      { x: 3, y: 7 },
-      { x: 4, y: 7 },
-      { x: 5, y: 7 },
-      { x: 6, y: 7 },
-    ],
-  ],
-  // Log has single texture
+  // For now, use single texture per tile (update when actual variant textures are added to spritesheet)
+  // TODO: Add actual variant textures to spritesheet, then uncomment multi-texture arrays below
+  ["grass", { x: 0, y: 0 }],
+  ["water", { x: 3, y: 7 }],
   ["log", { x: 3, y: 5 }],
-  // Rock has 3 variants (row 5, columns 6-8)
-  [
-    "rock",
-    [
-      { x: 6, y: 5 },
-      { x: 7, y: 5 },
-      { x: 8, y: 5 },
-    ],
-  ],
-  // Tree has 2 variants (row 4, columns 0-1)
-  [
-    "tree",
-    [
-      { x: 0, y: 4 },
-      { x: 1, y: 4 },
-    ],
-  ],
+  ["rock", { x: 6, y: 5 }],
+  ["tree", { x: 0, y: 4 }],
+
+  // Example of how to add variants once spritesheet has multiple textures:
+  // ["grass", [
+  //   { x: 0, y: 0 }, // Variant 0
+  //   { x: 1, y: 0 }, // Variant 1
+  //   { x: 2, y: 0 }, // Variant 2
+  //   { x: 3, y: 0 }, // Variant 3
+  // ]],
 ]);
