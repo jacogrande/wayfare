@@ -47,19 +47,9 @@ export const loadTileset = async (
 };
 
 export const OVERWORLD_TILESET: TilesetMapping = new Map([
-  // For now, use single texture per tile (update when actual variant textures are added to spritesheet)
-  // TODO: Add actual variant textures to spritesheet, then uncomment multi-texture arrays below
-  ["grass", { x: 0, y: 0 }],
+  ["grass", [{ x: 0, y: 0 }]],
   ["water", { x: 3, y: 7 }],
   ["log", { x: 3, y: 5 }],
   ["rock", { x: 6, y: 5 }],
   ["tree", { x: 0, y: 4 }],
-
-  // Example of how to add variants once spritesheet has multiple textures:
-  // ["grass", [
-  //   { x: 0, y: 0 }, // Variant 0
-  //   { x: 1, y: 0 }, // Variant 1
-  //   { x: 2, y: 0 }, // Variant 2
-  //   { x: 3, y: 0 }, // Variant 3
-  // ]],
 ]);

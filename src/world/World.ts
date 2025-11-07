@@ -86,8 +86,11 @@ export class World {
       16,
     );
 
-    // Create test map (50x50 tiles, 800x800 pixels)
-    this.tileMapData = TileMap.createTestMap(50, 50);
+    // Load map from JSON file
+    const { TileMapLoader } = await import("./map/TileMapLoader");
+    this.tileMapData = await TileMapLoader.loadFromFile(
+      "/maps/test-village.json",
+    );
 
     // Create renderer with chunking/culling
     this.tileMapRenderer = new TileMapRenderer(this.tileMapData, tileTextures);
