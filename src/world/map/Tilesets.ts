@@ -35,4 +35,7 @@ export const loadTileset = async (
 export const OVERWORLD_TILESET: TilesetMapping = new Map([
   ["grass", { x: 0, y: 0 }],
   ["water", { x: 3, y: 7 }],
+  ["log", { x: 3, y: 5 }],
+  ["rock", { x: 6, y: 5 }],
+  ["tree", { x: 0, y: 4 }],
 ]);

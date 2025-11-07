@@ -45,6 +45,24 @@ export class TileMap {
     return this.collisionGrid[index] !== 0;
   }
 
+  /** Get the tile at a specific position (checks all layers, returns first non-empty) */
+  getTileAt(tx: number, ty: number): import("./Tile").Tile | null {
+    if (tx < 0 || tx >= this.width || ty < 0 || ty >= this.height) {
+      return null;
+    }
+
+    // Check layers from top to bottom (highest z-index first)
+    const layers = this.getAllLayers().reverse();
+    for (const layer of layers) {
+      const tile = layer.getTile(tx, ty);
+      if (tile && tile.id !== "empty") {
+        return tile;
+      }
+    }
+
+    return null;
+  }
+
   /** Set collision at tile position */
   setCollision(tx: number, ty: number, blocked: boolean): void {
     if (tx >= 0 && tx < this.width && ty >= 0 && ty < this.height) {
@@ -85,12 +103,14 @@ export class TileMap {
 
   static createTestMap(width: number, height: number): TileMap {
     const map = new TileMap(width, height, 16);
-    // Create ground layer
+
+    // Create ground layer (z-index: 0)
     const ground = new TileLayer("ground", width, height, 0);
     ground.fill({ id: "grass" });
     map.addLayer(ground);
-    // Create walls layer
-    const walls = new TileLayer("water", width, height, 10);
+
+    // Create walls layer (z-index: 10)
+    const walls = new TileLayer("walls", width, height, 10);
     // Add border walls
     for (let x = 0; x < width; x++) {
       walls.setTile(x, 0, { id: "water" });
@@ -105,6 +125,27 @@ export class TileMap {
       map.setCollision(width - 1, y, true);
     }
     map.addLayer(walls);
+
+    // Create objects layer (z-index: 5 - renders above ground, below walls)
+    const objects = new TileLayer("objects", width, height, 5);
+    // Add some example objects (rocks and trees scattered around)
+    for (let i = 0; i < 20; i++) {
+      const x = Math.floor(Math.random() * (width - 4)) + 2;
+      const y = Math.floor(Math.random() * (height - 4)) + 2;
+      const tileType = Math.random() > 0.5 ? "rock" : "tree";
+      objects.setTile(x, y, { id: tileType });
+      // Objects block movement
+      map.setCollision(x, y, true);
+    }
+    // Add a few logs
+    for (let i = 0; i < 10; i++) {
+      const x = Math.floor(Math.random() * (width - 4)) + 2;
+      const y = Math.floor(Math.random() * (height - 4)) + 2;
+      objects.setTile(x, y, { id: "log" });
+      map.setCollision(x, y, true);
+    }
+    map.addLayer(objects);
+
     return map;
   }
 }
