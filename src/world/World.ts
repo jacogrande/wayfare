@@ -1,8 +1,10 @@
-import { Assets, Container, Rectangle, Sprite } from "pixi.js";
-import { Player } from "./entities/Player";
+import { Assets, Container, Sprite } from "pixi.js";
 import Keyboard from "../input/Keyboard";
+import { Player } from "./entities/Player";
 import { TileMap } from "./map/TileMap";
 import { TileMapRenderer } from "./map/TileMapRenderer";
+import { loadTileset, OVERWORLD_TILESET } from "./map/Tilesets";
+import { loadWalkCycleSprites } from "./entities/SpriteLoader";
 
 /**
  * World object responsible for containing maps, entities, viewports
@@ -10,8 +12,8 @@ import { TileMapRenderer } from "./map/TileMapRenderer";
 export class World {
   private container = new Container();
   private player!: Player;
-  private tileMap!: TileMap;
-  private tileMapView!: TileMapRenderer;
+  private tileMapRenderer?: TileMapRenderer;
+  private tileMapData?: TileMap;
 
   constructor() {
     this.container.sortableChildren = true;
@@ -30,71 +32,86 @@ export class World {
     return this.player.root.position;
   }
 
-  getWorldSize() {
-    return {
-      width: this.tileMap.getWorldWidth(),
-      height: this.tileMap.getWorldHeight(),
-    };
+  getTileMapRenderer(): TileMapRenderer | undefined {
+    return this.tileMapRenderer;
+  }
+
+  /**
+   * Check if a world position is blocked by collision
+   */
+  isBlocked(worldX: number, worldY: number): boolean {
+    if (!this.tileMapData) return false;
+
+    const { tx, ty } = this.tileMapData.worldToTile(worldX, worldY);
+    return this.tileMapData.isBlocked(tx, ty);
+  }
+
+  /**
+   * Get world size in pixels for viewport clamping
+   */
+  getWorldSize(): { width: number; height: number } {
+    if (!this.tileMapData) {
+      return { width: 0, height: 0 };
+    }
+    return this.tileMapData.getWorldSize();
   }
 
   //========= INITIALIZATION =========//
   async start() {
-    //========= BUILD WORLD MAP =========//
-    const tilesWide = 64;
-    const tilesHigh = 64;
-    const tileSize = 16;
-    this.tileMap = TileMap.createUniform(
-      tilesWide,
-      tilesHigh,
-      tileSize,
-      "grass",
+    //========= CREATE TILEMAP =========//
+    // Load tileset textures
+    const tileTextures = await loadTileset(
+      "/gfx/Overworld.png",
+      OVERWORLD_TILESET,
+      16,
     );
-    this.tileMapView = new TileMapRenderer(this.tileMap);
-    this.container.addChild(this.tileMapView.root);
-    await this.tileMapView.init();
+
+    // Create test map (50x50 tiles, 800x800 pixels)
+    this.tileMapData = TileMap.createTestMap(50, 50);
+
+    // Create renderer with chunking/culling
+    this.tileMapRenderer = new TileMapRenderer(this.tileMapData, tileTextures);
+
+    // Add tilemap to bottom layer
+    this.container.addChildAt(this.tileMapRenderer.root, 0);
 
     //========= CREATE PLAYER =========//
-    const texture = await Assets.load("/assets/bunny.png");
-    texture.source.scaleMode = "nearest";
-    const playerSprite = new Sprite(texture);
+    // Load walk cycle sprites (4x4 grid, each sprite is 16x32)
+    // Row order: down, right, up, left (determined by testing)
+    const dirFrames = await loadWalkCycleSprites("/gfx/NPC_test.png", 16, 32, [
+      "down",  // Row 0: correct
+      "right", // Row 1: was showing as "left"
+      "up",    // Row 2: was showing as "right"
+      "left",  // Row 3: was showing as "up"
+    ]);
+    const playerSprite = new Sprite(dirFrames.down[0]);
+
+    // Scale to 1.5 tiles (24px) - adjust based on bunny texture size
+    const targetSize = 24; // 1.5 tiles * 16px
+    const scale = targetSize / playerSprite.width;
+    playerSprite.scale.set(scale);
+
     this.player = new Player(playerSprite, {
       readKeys: Keyboard.getKeys,
+      isBlocked: this.isBlocked.bind(this),
+      directionalSprites: dirFrames,
+      // Hitbox: smaller than sprite, focused on feet/lower body
+      hitboxWidth: 12,  // Narrower than sprite (16px scaled to 24px)
+      hitboxHeight: 8,  // Just the bottom portion for feet
+      hitboxOffsetX: 0, // Centered horizontally
+      hitboxOffsetY: 8, // Offset down toward feet (half of sprite height / 2)
       maxSpeed: 200,
       drag: 12,
       accel: 5000,
     });
-    const startX = tileSize * 2 + tileSize / 2;
-    const startY = tileSize * 2 + tileSize / 2;
-    this.player.setPosition(startX, startY);
+    // Center player in world
+    const worldSize = this.getWorldSize();
+    this.player.setPosition(worldSize.width / 2, worldSize.height / 2);
     this.container.addChild(this.player.root);
   }
 
   //========= MAIN UPDATE LOOP =========//
   update(deltaFrames: number) {
     this.player.update(deltaFrames);
-    this.constrainPlayerToWorld();
-  }
-
-  updateViewArea(viewBounds: Rectangle) {
-    this.tileMapView.updateVisibleChunks(viewBounds);
-  }
-
-  private constrainPlayerToWorld() {
-    const worldWidth = this.tileMap.getWorldWidth();
-    const worldHeight = this.tileMap.getWorldHeight();
-    const margin = this.tileMap.tileSize / 2;
-
-    const clampedX = Math.min(
-      Math.max(this.player.x, margin),
-      worldWidth - margin,
-    );
-    const clampedY = Math.min(
-      Math.max(this.player.y, margin),
-      worldHeight - margin,
-    );
-
-    if (clampedX !== this.player.x || clampedY !== this.player.y) {
-      this.player.setPosition(clampedX, clampedY);
-    }
   }
 }
